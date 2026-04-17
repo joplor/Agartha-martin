@@ -34,15 +34,13 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.9;
-renderer.autoClear = false;   // we manage clear manually for dual-scene gun
+renderer.autoClear = false;
 document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-// ── First-person world camera ──────────────────────────────────────────────
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 1000);
 camera.rotation.order = 'YXZ';
 camera.position.set(0, EYE_HEIGHT, 0);
 
-// ── Gun scene (rendered on top, depth-cleared so gun never clips) ──────────
 const gunScene  = new THREE.Scene();
 const gunCamera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.01, 20);
 gunScene.add(new THREE.AmbientLight(0xffffff, 1.0));
@@ -50,7 +48,6 @@ const gunLight = new THREE.PointLight(0x00eeff, 2.0, 3);
 gunLight.position.set(0, 0.3, -0.2);
 gunScene.add(gunLight);
 
-// Muzzle flash light (hidden until fired)
 const muzzleFlash = new THREE.PointLight(0x00ffcc, 0, 2.5);
 muzzleFlash.position.set(0, 0.01, -0.68);
 gunScene.add(muzzleFlash);
@@ -64,61 +61,51 @@ window.addEventListener('resize', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// GUN MODEL (in gunScene, always renders in front)
-// Barrel points in -Z direction to align with the camera's forward ray
+// GUN MODEL
 // ══════════════════════════════════════════════════════════════════════════════
 const gunGroup = new THREE.Group();
 
-// Main body
 const gBodyMat  = new THREE.MeshLambertMaterial({ color: 0x0d2045 });
 const gAccMat   = new THREE.MeshLambertMaterial({ color: 0x1a3a80 });
 const gCryoMat  = new THREE.MeshLambertMaterial({ color: 0x00bbee });
 const gGlowMat  = new THREE.MeshBasicMaterial  ({ color: 0x00ffcc });
 
-// Body block
 const gBody = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.075, 0.38), gBodyMat);
 gBody.position.set(0, 0, -0.10);
 gunGroup.add(gBody);
 
-// Side rail
 const gRail = new THREE.Mesh(new THREE.BoxGeometry(0.115, 0.025, 0.32), gAccMat);
 gRail.position.set(0, 0.052, -0.10);
 gunGroup.add(gRail);
 
-// Barrel (cylinder along Z)
 const gBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.028, 0.60, 8), gCryoMat);
 gBarrel.rotation.x = Math.PI / 2;
 gBarrel.position.set(0, 0.010, -0.44);
 gunGroup.add(gBarrel);
 
-// Barrel tip
 const gTip = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 8), gGlowMat);
 gTip.position.set(0, 0.010, -0.74);
 gunGroup.add(gTip);
 
-// Handle
 const gHandle = new THREE.Mesh(new THREE.BoxGeometry(0.062, 0.13, 0.09), gBodyMat);
 gHandle.position.set(0, -0.10, 0.04);
 gunGroup.add(gHandle);
 
-// Cryo tank (side canister)
 const gTank = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.22, 8), gCryoMat);
 gTank.rotation.z = Math.PI / 2;
 gTank.position.set(0.072, -0.018, -0.05);
 gunGroup.add(gTank);
 
-// Scope ring
 const gScope = new THREE.Mesh(new THREE.TorusGeometry(0.028, 0.008, 6, 14), gAccMat);
 gScope.rotation.x = Math.PI / 2;
 gScope.position.set(0, 0.062, -0.20);
 gunGroup.add(gScope);
 
-// Position: centred bottom of screen, barrel pointing straight forward (-Z)
 gunGroup.position.set(0, -0.135, -0.30);
 gunScene.add(gunGroup);
 
 // ══════════════════════════════════════════════════════════════════════════════
-// LIGHTING (world)
+// LIGHTING
 // ══════════════════════════════════════════════════════════════════════════════
 scene.add(new THREE.AmbientLight(0x5566aa, 0.8));
 
@@ -139,32 +126,26 @@ const aurora1 = new THREE.PointLight(0x8844ff, 0.40, 400);
 aurora1.position.set( 70, 90, -60);
 scene.add(aurora1);
 
-// ── BIG VISIBLE SUN SPHERE ─────────────────────────────────────────────────
-// Placed far away in the sky at the sun light's direction.
-// Three concentric spheres: solid core + two glow halos
+// ── BIG SUN SPHERE ─────────────────────────────────────────────────────────
 const SUN_POS = new THREE.Vector3(400, 250, 200);
 
-const sunCoreMat = new THREE.MeshBasicMaterial({ color: 0xffffaa });
-const sunCore    = new THREE.Mesh(new THREE.SphereGeometry(18, 24, 24), sunCoreMat);
+const sunCore = new THREE.Mesh(new THREE.SphereGeometry(18, 24, 24),
+  new THREE.MeshBasicMaterial({ color: 0xffffaa }));
 sunCore.position.copy(SUN_POS);
 scene.add(sunCore);
 
-const sunHalo1 = new THREE.Mesh(
-  new THREE.SphereGeometry(28, 16, 16),
-  new THREE.MeshBasicMaterial({ color: 0xfff0aa, transparent: true, opacity: 0.18 })
-);
+const sunHalo1 = new THREE.Mesh(new THREE.SphereGeometry(28, 16, 16),
+  new THREE.MeshBasicMaterial({ color: 0xfff0aa, transparent: true, opacity: 0.18 }));
 sunHalo1.position.copy(SUN_POS);
 scene.add(sunHalo1);
 
-const sunHalo2 = new THREE.Mesh(
-  new THREE.SphereGeometry(44, 12, 12),
-  new THREE.MeshBasicMaterial({ color: 0xffcc44, transparent: true, opacity: 0.07 })
-);
+const sunHalo2 = new THREE.Mesh(new THREE.SphereGeometry(44, 12, 12),
+  new THREE.MeshBasicMaterial({ color: 0xffcc44, transparent: true, opacity: 0.07 }));
 sunHalo2.position.copy(SUN_POS);
 scene.add(sunHalo2);
 
 // ══════════════════════════════════════════════════════════════════════════════
-// TERRAIN HEIGHT FUNCTION (pure math — no external file needed)
+// TERRAIN
 // ══════════════════════════════════════════════════════════════════════════════
 function terrainH(x, z) {
   const d = Math.hypot(x, z);
@@ -177,7 +158,6 @@ function terrainH(x, z) {
   return h;
 }
 
-// ── Terrain mesh ────────────────────────────────────────────────────────────
 const tGeo = new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, TERRAIN_SEGS, TERRAIN_SEGS);
 tGeo.rotateX(-Math.PI / 2);
 const tPos = tGeo.attributes.position;
@@ -189,7 +169,6 @@ const terrainMesh = new THREE.Mesh(tGeo, new THREE.MeshLambertMaterial({ color: 
 terrainMesh.receiveShadow = true;
 scene.add(terrainMesh);
 
-// ── Frozen lake at centre ───────────────────────────────────────────────────
 const lake = new THREE.Mesh(
   (() => { const g = new THREE.CircleGeometry(11, 32); g.rotateX(-Math.PI / 2); return g; })(),
   new THREE.MeshLambertMaterial({ color: 0x88bbcc, transparent: true, opacity: 0.65 })
@@ -198,12 +177,12 @@ lake.position.y = 0.02;
 scene.add(lake);
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ICE FORMATIONS (procedural scenery)
+// ICE FORMATIONS
 // ══════════════════════════════════════════════════════════════════════════════
 const iceColors  = [0xaaccdd, 0xbbddee, 0x99bbcc, 0xc8e4f0];
 const geoFactories = [
   s => new THREE.DodecahedronGeometry(s, 0),
-  s => { const g = new THREE.ConeGeometry(s * 0.55, s * 2.2, 5); return g; },
+  s => new THREE.ConeGeometry(s * 0.55, s * 2.2, 5),
   s => new THREE.OctahedronGeometry(s, 0),
 ];
 for (let i = 0; i < 95; i++) {
@@ -248,7 +227,7 @@ let   fireQueued  = false;
 let   pointerLocked  = false;
 let   gameStarted = false;
 
-document.addEventListener('keydown', e => { keys.add(e.code);    if (e.code === 'Space') e.preventDefault(); });
+document.addEventListener('keydown', e => { keys.add(e.code); if (e.code === 'Space') e.preventDefault(); });
 document.addEventListener('keyup',   e => keys.delete(e.code));
 
 document.addEventListener('mousemove', e => {
@@ -271,7 +250,7 @@ document.getElementById('startScreen').addEventListener('click', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// TEXTURE LOADER — loads image or draws a fallback portrait canvas
+// TEXTURE LOADER
 // ══════════════════════════════════════════════════════════════════════════════
 function loadTex(url, fallbackHue, label) {
   return new Promise(resolve => {
@@ -283,20 +262,15 @@ function loadTex(url, fallbackHue, label) {
         const c = document.createElement('canvas');
         c.width = c.height = 512;
         const ctx = c.getContext('2d');
-
         const bg = ctx.createLinearGradient(0, 0, 0, 512);
         bg.addColorStop(0, fallbackHue === 'blue' ? '#0a1535' : '#2a0a05');
         bg.addColorStop(1, fallbackHue === 'blue' ? '#050a1a' : '#150502');
         ctx.fillStyle = bg;
         ctx.fillRect(0, 0, 512, 512);
-
-        // Face
         ctx.fillStyle = '#ffccaa';
         ctx.beginPath(); ctx.ellipse(256, 205, 115, 140, 0, 0, Math.PI * 2); ctx.fill();
-        // Eyes
         ctx.fillStyle = fallbackHue === 'blue' ? '#1166ff' : '#aa4400';
         [155, 357].forEach(ex => { ctx.beginPath(); ctx.arc(ex, 185, 18, 0, Math.PI * 2); ctx.fill(); });
-        // Warning text
         ctx.fillStyle = 'rgba(255,80,80,0.9)';
         ctx.font = 'bold 28px sans-serif';
         ctx.textAlign = 'center';
@@ -305,7 +279,6 @@ function loadTex(url, fallbackHue, label) {
         ctx.fillStyle = 'rgba(255,200,100,0.8)';
         ctx.fillText('assets/' + label, 256, 425);
         ctx.fillText('→  save image here', 256, 455);
-
         resolve(new THREE.CanvasTexture(c));
       }
     );
@@ -314,26 +287,21 @@ function loadTex(url, fallbackHue, label) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ALIEN FACTORY
-// Face image is applied to a large PlaneGeometry face-quad that sits flush on
-// the front of the alien's head sphere — giving a crisp, full-image portrait.
 // ══════════════════════════════════════════════════════════════════════════════
 const aliens = [];
 
 function makeAlien(type, faceTex) {
   const isA      = type === 'A';
   const bodyCol  = isA ? 0x1e4488 : 0x993311;
-  const glowCol  = isA ? 0x44aaff : 0xff7722;
   const mat      = new THREE.MeshLambertMaterial({ color: bodyCol });
 
   const g = new THREE.Group();
 
-  // ── Torso ──
   const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.32, 0.9, 4, 8), mat);
   torso.position.y = 0.82;
   torso.castShadow = true;
   g.add(torso);
 
-  // ── Arms ──
   [-1, 1].forEach(s => {
     const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.55, 4, 6), mat);
     arm.position.set(s * 0.48, 0.88, 0);
@@ -342,7 +310,6 @@ function makeAlien(type, faceTex) {
     g.add(arm);
   });
 
-  // ── Legs ──
   [-1, 1].forEach(s => {
     const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.10, 0.48, 4, 6), mat);
     leg.position.set(s * 0.17, 0.24, 0);
@@ -350,7 +317,6 @@ function makeAlien(type, faceTex) {
     g.add(leg);
   });
 
-  // ── Head sphere (body colour base) ──
   const headSphere = new THREE.Mesh(
     new THREE.SphereGeometry(0.40, 12, 10),
     new THREE.MeshLambertMaterial({ color: bodyCol })
@@ -359,46 +325,20 @@ function makeAlien(type, faceTex) {
   headSphere.castShadow = true;
   g.add(headSphere);
 
-  // ── FACE PLANE — large quad stuck to the front of the head ──
-  // The image renders at full quality on a flat surface with no distortion.
-  // Slightly in front of the sphere surface (radius 0.40 + tiny offset).
+  // Face image — MeshBasicMaterial = full brightness, no lighting darkening
   const facePlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.72, 0.72),           // square face
-    new THREE.MeshLambertMaterial({ map: faceTex, transparent: false })
+    new THREE.PlaneGeometry(1.3, 2.5),
+    new THREE.MeshBasicMaterial({ map: faceTex, transparent: false })
   );
-  facePlane.position.set(0, 1.82, 0.42);           // +Z = alien's front
+  facePlane.position.set(0, 1.15, 0.46);
   g.add(facePlane);
 
-  // ── Eye glow dots (visible from far away) ──
-  const eyeMat = new THREE.MeshBasicMaterial({ color: glowCol });
-  [-0.14, 0.14].forEach(ox => {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.052, 6, 4), eyeMat);
-    eye.position.set(ox, 1.88, 0.44);
-    g.add(eye);
-  });
-
-  // ── Antennae ──
-  const antMat = new THREE.MeshBasicMaterial({ color: glowCol });
-  [-0.15, 0.15].forEach(ox => {
-    const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.40, 4),
-      new THREE.MeshLambertMaterial({ color: glowCol }));
-    stick.position.set(ox, 2.11, 0);
-    g.add(stick);
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 4), antMat);
-    ball.position.set(ox, 2.34, 0);
-    g.add(ball);
-  });
-
-  // ── Orbit ring ──
   const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(0.54, 0.032, 6, 24),
-    new THREE.MeshBasicMaterial({ color: glowCol, transparent: true, opacity: 0.55 })
+    new THREE.TorusGeometry(0.01, 0.001, 3, 3),
+    new THREE.MeshBasicMaterial({ visible: false })
   );
-  ring.rotation.x = Math.PI / 2;
-  ring.position.y = 0.12;
   g.add(ring);
 
-  // ── Freeze shell (shown when frozen) ──
   const freeze = new THREE.Mesh(
     new THREE.SphereGeometry(1.1, 9, 9),
     new THREE.MeshBasicMaterial({ color: 0x88eeff, transparent: true, opacity: 0, wireframe: true })
@@ -406,7 +346,6 @@ function makeAlien(type, faceTex) {
   freeze.position.y = 0.9;
   g.add(freeze);
 
-  // Random spawn
   let sx = 0, sz = 0, att = 0;
   do {
     const ang = Math.random() * Math.PI * 2;
@@ -441,8 +380,7 @@ function newWanderTarget(a) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// CAPTURE / SHOOT MECHANIC
-// Raycasts from camera centre (aligned with crosshair and gun barrel)
+// CAPTURE / SHOOT
 // ══════════════════════════════════════════════════════════════════════════════
 const raycaster = new THREE.Raycaster();
 let beamMesh  = null;
@@ -452,15 +390,12 @@ const _camDir = new THREE.Vector3();
 function fireCapture() {
   if (beamMesh) { scene.remove(beamMesh); beamMesh = null; }
 
-  // Muzzle flash
   muzzleFlash.intensity = 5;
   setTimeout(() => { muzzleFlash.intensity = 0; }, 100);
 
-  // Gun recoil animation (simple)
   gunGroup.position.z += 0.045;
   setTimeout(() => { gunGroup.position.z -= 0.045; }, 80);
 
-  // Cast ray from camera through screen centre
   raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
 
   const targets = [];
@@ -472,14 +407,12 @@ function fireCapture() {
 
   const hits = raycaster.intersectObjects(targets, false);
 
-  // Beam starts a little in front of camera (gun barrel tip in world space)
   camera.getWorldDirection(_camDir);
   const beamStart = camera.position.clone().addScaledVector(_camDir, 0.55);
   const beamEnd   = hits.length > 0
     ? hits[0].point.clone()
     : camera.position.clone().addScaledVector(_camDir, CAPTURE_RANGE + 4);
 
-  // Draw cryo beam
   beamMesh = new THREE.Line(
     new THREE.BufferGeometry().setFromPoints([beamStart, beamEnd]),
     new THREE.LineBasicMaterial({ color: 0x00ffcc })
@@ -487,14 +420,12 @@ function fireCapture() {
   scene.add(beamMesh);
   beamTimer = 0.20;
 
-  // Screen flash
   const flash = document.getElementById('beamFlash');
   flash.style.opacity = '1';
   setTimeout(() => { flash.style.opacity = '0'; }, 70);
 
   if (!hits.length) return;
 
-  // Find which alien was hit
   let hitAlien = null;
   outer: for (const a of aliens) {
     if (a.state === 'captured') continue;
@@ -513,7 +444,6 @@ function fireCapture() {
   }
 
   if (hitAlien.state === 'frozen') {
-    // Second shot → CAPTURE
     hitAlien.state = 'captured';
     hitAlien.captured = true;
     scene.remove(hitAlien.group);
@@ -523,7 +453,6 @@ function fireCapture() {
     updateHUD();
     checkWin();
   } else {
-    // First shot → FREEZE
     hitAlien.state       = 'frozen';
     hitAlien.freezeTimer = FREEZE_SEC;
     showMsg('cap', `FROZEN!  Shoot again to capture!`);
@@ -562,7 +491,7 @@ function showMsg(type, text) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// UPDATE — FPS PLAYER (camera = eyes)
+// UPDATE — PLAYER
 // ══════════════════════════════════════════════════════════════════════════════
 let playerYaw   = 0;
 let playerPitch = 0;
@@ -570,7 +499,6 @@ const playerVel = new THREE.Vector3();
 let   playerOnGround = true;
 
 function updatePlayer(dt) {
-  // Mouse look
   if (pointerLocked) {
     playerYaw   -= mouseDX * 0.0022;
     playerPitch -= mouseDY * 0.0022;
@@ -578,7 +506,6 @@ function updatePlayer(dt) {
     mouseDX = mouseDY = 0;
   }
 
-  // Movement relative to yaw only (not pitch — no flying)
   const cosY = Math.cos(playerYaw), sinY = Math.sin(playerYaw);
   const fwd   = new THREE.Vector3(-sinY, 0, -cosY);
   const right = new THREE.Vector3( cosY, 0, -sinY);
@@ -609,7 +536,6 @@ function updatePlayer(dt) {
   camera.position.y += playerVel.y * dt;
   camera.position.z += playerVel.z * dt;
 
-  // Terrain + eye-height
   const groundY = terrainH(camera.position.x, camera.position.z) + EYE_HEIGHT;
   if (camera.position.y <= groundY) {
     camera.position.y = groundY;
@@ -619,17 +545,15 @@ function updatePlayer(dt) {
     playerOnGround = false;
   }
 
-  // Bounds
   camera.position.x = THREE.MathUtils.clamp(camera.position.x, -88, 88);
   camera.position.z = THREE.MathUtils.clamp(camera.position.z, -88, 88);
 
-  // Apply rotation (YXZ order: yaw then pitch, no roll)
   camera.rotation.y = playerYaw;
   camera.rotation.x = playerPitch;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// UPDATE — GUN BOB (subtle sway when moving)
+// UPDATE — GUN BOB
 // ══════════════════════════════════════════════════════════════════════════════
 function updateGunBob(t) {
   const moving = keys.has('KeyW') || keys.has('KeyS') || keys.has('KeyA') || keys.has('KeyD');
@@ -640,10 +564,10 @@ function updateGunBob(t) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// UPDATE — ALIENS (AI: wander / flee / chase / frozen)
+// UPDATE — ALIENS
 // ══════════════════════════════════════════════════════════════════════════════
 function updateAliens(dt) {
-  const pp  = camera.position;  // player position = camera position in FPS
+  const pp  = camera.position;
   const now = performance.now() * 0.001;
   const radarLines = [];
 
@@ -654,10 +578,8 @@ function updateAliens(dt) {
 
     radarLines.push({ dist, str: `Type-${a.type} — ${dist.toFixed(0)}m${a.state === 'frozen' ? ' [FROZEN]' : ''}`, close: dist < 12 });
 
-    // Orbit ring spin
     a.ring.rotation.z += dt * 1.9;
 
-    // ── Frozen state ──
     if (a.state === 'frozen') {
       a.freezeTimer -= dt;
       a.freeze.material.opacity = 0.12 + Math.abs(Math.sin(now * 5)) * 0.28;
@@ -670,27 +592,16 @@ function updateAliens(dt) {
     }
     a.freeze.material.opacity = 0;
 
-    // ── State transition ──
-    if (a.type === 'A') {
-      a.state = dist < 22 ? 'flee' : 'wander';
-    } else {
-      a.state = dist < 28 ? 'chase' : 'wander';
-    }
+    // All aliens chase the player
+    a.state = dist < 35 ? 'chase' : 'wander';
 
-    // ── Movement ──
     const dir = new THREE.Vector3();
 
-    if (a.state === 'flee') {
-      dir.subVectors(ap, pp).setY(0).normalize();
-      ap.addScaledVector(dir, SPD_FLEE * dt);
-
-    } else if (a.state === 'chase') {
+    if (a.state === 'chase') {
       dir.subVectors(pp, ap).setY(0).normalize();
       ap.addScaledVector(dir, SPD_CHASE * dt);
       if (dist < 1.5) showMsg('warn', '⚠ ALIEN CONTACT!  Freeze it first!');
-
     } else {
-      // Wander
       a.wanderTimer -= dt;
       if (a.wanderTimer <= 0) newWanderTarget(a);
       dir.copy(a.wanderTarget).setY(ap.y).sub(ap);
@@ -702,22 +613,19 @@ function updateAliens(dt) {
       }
     }
 
-    // Terrain stick + bounds
     ap.y = terrainH(ap.x, ap.z);
     ap.x = THREE.MathUtils.clamp(ap.x, -88, 88);
     ap.z = THREE.MathUtils.clamp(ap.z, -88, 88);
 
-    // Face direction of travel
     if (dir.lengthSq() > 0.0001) {
       a.group.rotation.y = Math.atan2(dir.x, dir.z);
     }
 
-    // Head bob
-    a.headSphere.position.y = 1.82 + Math.sin(now * 2.8 + a.bobOffset) * 0.06;
-    a.facePlane.position.y  = a.headSphere.position.y;
+    const bob = Math.sin(now * 2.8 + a.bobOffset) * 0.04;
+    a.headSphere.position.y = 1.82 + bob;
+    a.facePlane.position.y  = 1.15 + bob;
   }
 
-  // Radar UI (4 nearest)
   radarLines.sort((x, y) => x.dist - y.dist);
   document.getElementById('alienRadar').innerHTML =
     radarLines.slice(0, 4).map(r =>
@@ -755,12 +663,11 @@ function updateAurora(t) {
   aurora1.intensity = 0.30 + Math.cos(t * 0.27) * 0.15;
   aurora0.position.x = Math.sin(t * 0.07) * 75;
   aurora1.position.z = Math.cos(t * 0.11) * 70;
-  // Pulse sun halo
   sunHalo1.material.opacity = 0.14 + Math.sin(t * 0.5) * 0.06;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// RENDER LOOP  — world first, then depth-clear, then gun on top
+// RENDER LOOP
 // ══════════════════════════════════════════════════════════════════════════════
 const clock = new THREE.Clock();
 
@@ -783,11 +690,8 @@ function animate() {
     }
   }
 
-  // ── Render world ──
   renderer.clear();
   renderer.render(scene, camera);
-
-  // ── Render gun on top (clear depth so it never clips into geometry) ──
   renderer.clearDepth();
   renderer.render(gunScene, gunCamera);
 }
@@ -796,8 +700,6 @@ function animate() {
 // INIT
 // ══════════════════════════════════════════════════════════════════════════════
 async function init() {
-  // alien_a.jpg = Image 1 (white-hair — Type-A passive)
-  // alien_b.jpg = Image 2 (blonde   — Type-B hostile)
   const [texA, texB] = await Promise.all([
     loadTex('assets/alien_a.jpg', 'blue',   'alien_a.jpg'),
     loadTex('assets/alien_b.jpg', 'orange', 'alien_b.jpg'),
