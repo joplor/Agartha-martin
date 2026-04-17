@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arctic Alien Capture</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #000; font-family: 'Courier New', monospace; }
+    #canvas-container canvas { display: block; }
+
+    /* ── UI LAYER ── */
+    #ui {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none; color: #fff; user-select: none;
+    }
+
+    /* ── CROSSHAIR — FPS dot + gap cross ── */
+    #crosshair {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 28px; height: 28px;
+    }
+    /* Centre dot */
+    #crosshair::after {
+      content: ''; position: absolute;
+      width: 4px; height: 4px; border-radius: 50%;
+      background: rgba(0,255,200,0.95);
+      top: 50%; left: 50%; transform: translate(-50%,-50%);
+      box-shadow: 0 0 6px rgba(0,255,200,0.8);
+    }
+    /* Gap cross lines via box-shadow on a tiny element */
+    #crosshair::before {
+      content: ''; position: absolute;
+      top: 50%; left: 50%; transform: translate(-50%,-50%);
+      width: 2px; height: 2px;
+      box-shadow:
+        0 -9px 0 1px rgba(0,255,200,0.7),
+        0  9px 0 1px rgba(0,255,200,0.7),
+       -9px 0 0 1px rgba(0,255,200,0.7),
+        9px 0 0 1px rgba(0,255,200,0.7);
+    }
+
+    /* ── PANELS ── */
+    .panel {
+      background: rgba(0,12,30,0.72);
+      border: 1px solid rgba(0,180,255,0.4);
+      border-radius: 8px;
+      padding: 12px 16px;
+      backdrop-filter: blur(4px);
+    }
+    .panel h2 {
+      color: #00ccff; font-size: 11px;
+      letter-spacing: 3px; margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+    .panel .row { font-size: 12px; margin: 3px 0; color: #cce4ff; }
+    .panel .row span { font-weight: bold; }
+    .val-green { color: #00ff88; }
+    .val-red   { color: #ff5533; }
+    .val-blue  { color: #44aaff; }
+
+    #hud { position: absolute; top: 18px; left: 18px; min-width: 190px; }
+    #inventory { position: absolute; top: 18px; right: 18px; min-width: 175px; }
+
+    /* Inventory slots */
+    .inv-row {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; margin: 5px 0; color: #cce4ff;
+    }
+    .inv-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── CONTROLS ── */
+    #controls {
+      position: absolute; bottom: 18px; left: 18px;
+      font-size: 10px; color: #88aacc; line-height: 1.8;
+    }
+
+    /* ── BEAM FLASH ── */
+    #beamFlash {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,255,200,0.07);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.08s;
+    }
+
+    /* ── MESSAGES ── */
+    #captureMsg, #warningMsg {
+      position: absolute; left: 50%;
+      transform: translateX(-50%);
+      font-size: 18px; font-weight: bold;
+      opacity: 0; pointer-events: none;
+      white-space: nowrap;
+      transition: opacity 0.25s;
+      text-shadow: 0 0 12px currentColor;
+    }
+    #captureMsg { top: 38%; color: #00ffcc; }
+    #warningMsg { top: 32%; color: #ff4422; }
+
+    /* ── START SCREEN ── */
+    #startScreen {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: radial-gradient(ellipse at center, rgba(0,15,40,0.96) 0%, rgba(0,5,15,0.99) 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      pointer-events: all; cursor: pointer;
+      gap: 8px;
+    }
+    #startScreen h1 {
+      font-size: 46px; letter-spacing: 5px;
+      color: #00ccff;
+      text-shadow: 0 0 40px rgba(0,200,255,0.8), 0 0 80px rgba(0,100,200,0.4);
+      margin-bottom: 8px;
+    }
+    #startScreen .sub {
+      font-size: 14px; color: #88bbdd; letter-spacing: 1px; text-align: center;
+      max-width: 480px; line-height: 1.6;
+    }
+    #startScreen .click {
+      margin-top: 28px; font-size: 18px; color: #00ffcc;
+      letter-spacing: 3px;
+      animation: blink 1.4s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* ── WIN SCREEN ── */
+    #winScreen {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,10,25,0.92);
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      pointer-events: all; gap: 12px;
+    }
+    #winScreen h1 {
+      font-size: 52px; color: #00ffcc; letter-spacing: 4px;
+      text-shadow: 0 0 30px #00ffcc, 0 0 60px rgba(0,200,150,0.5);
+    }
+    #winScreen p { font-size: 16px; color: #aaffee; }
+    #winScreen .score { font-size: 22px; color: #ffee44; margin-top: 8px; }
+    #winScreen button {
+      margin-top: 24px; padding: 12px 32px;
+      background: transparent; border: 2px solid #00ccff;
+      color: #00ccff; font-family: inherit; font-size: 16px;
+      letter-spacing: 2px; cursor: pointer;
+      transition: background 0.2s;
+    }
+    #winScreen button:hover { background: rgba(0,200,255,0.15); }
+
+    /* ── COMPASS / DISTANCE ── */
+    #alienRadar {
+      position: absolute; bottom: 18px; right: 18px;
+      font-size: 11px; color: #88aacc; text-align: right;
+      line-height: 1.7;
+    }
+    .radar-entry { color: #aaccff; }
+    .radar-entry.close { color: #ff8844; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <div id="canvas-container"></div>
+
+  <div id="ui">
+    <!-- START SCREEN -->
+    <div id="startScreen">
+      <h1>ARCTIC ALIEN CAPTURE</h1>
+      <p class="sub">
+        An alien scouting party has landed at the North Pole.<br>
+        Equip your cryo-capture device and retrieve them all.<br>
+        Two breeds detected — one flees, one hunts.
+      </p>
+      <div class="click">[ CLICK TO LOCK & PLAY ]</div>
+    </div>
+
+    <!-- WIN SCREEN -->
+    <div id="winScreen">
+      <h1>MISSION COMPLETE</h1>
+      <p>All alien specimens have been secured.</p>
+      <p class="score" id="finalScore"></p>
+      <p style="color:#88aacc;font-size:13px">The North Pole is safe — for now.</p>
+      <button onclick="location.reload()">PLAY AGAIN</button>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" class="panel">
+      <h2>Cryo-Capture Unit</h2>
+      <div class="row">Captured: <span id="capturedCount" class="val-green">0</span> / <span id="targetCount" class="val-blue">10</span></div>
+      <div class="row">Remaining: <span id="remainingCount" class="val-red">10</span></div>
+      <div class="row" style="margin-top:6px;color:#556688;font-size:10px">SHIFT = sprint</div>
+    </div>
+
+    <!-- INVENTORY -->
+    <div id="inventory" class="panel">
+      <h2>Specimens</h2>
+      <div class="inv-row">
+        <div class="inv-dot" style="background:#44aaff"></div>
+        <span>Type-A &nbsp;(Passive):&nbsp;</span>
+        <span id="invA" class="val-green">0</span>
+      </div>
+      <div class="inv-row">
+        <div class="inv-dot" style="background:#ff7733"></div>
+        <span>Type-B (Hostile):&nbsp;</span>
+        <span id="invB" class="val-red">0</span>
+      </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div id="controls" class="panel">
+      WASD &nbsp;— Move &nbsp;&nbsp;|&nbsp;&nbsp; MOUSE — Look<br>
+      SPACE — Jump &nbsp;|&nbsp; SHIFT — Sprint<br>
+      LEFT CLICK — Cryo Beam &nbsp;(range 15m)<br>
+      <span style="color:#556699">Click once to FREEZE · click again to CAPTURE</span>
+    </div>
+
+    <!-- NEAREST ALIENS -->
+    <div id="alienRadar"></div>
+
+    <!-- CROSSHAIR -->
+    <div id="crosshair"></div>
+
+    <!-- EFFECTS -->
+    <div id="beamFlash"></div>
+    <div id="captureMsg"></div>
+    <div id="warningMsg"></div>
+  </div>
+
+  <!-- Three.js (non-module global build) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
